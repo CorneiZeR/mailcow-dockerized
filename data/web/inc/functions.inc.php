@@ -2875,15 +2875,27 @@ function identity_provider($_action = null, $_data = null, $_extra = null) {
       $stmt->execute(array(':user' => $info['email']));
       $row = $stmt->fetch(PDO::FETCH_ASSOC);
       if ($row){
-        if (!in_array($row['authsource'], array("keycloak", "generic-oidc"))) {
+        // SSO is a login FLOW, not an authentication source. A mailbox whose
+        // authsource is an OIDC provider is signed in here as before; a
+        // local-password mailbox (`authsource=mailcow`) may ALSO be signed in
+        // this way when it opts in with `sso_access`, matched by the verified
+        // email the provider returned. Its authsource and password are left
+        // untouched, so the ordinary local login keeps working beside this one.
+        $row_attributes = json_decode($row['attributes'], true) ?: array();
+        $is_oidc_mailbox = in_array($row['authsource'], array("keycloak", "generic-oidc"));
+        $sso_login_allowed = !empty($row_attributes['sso_access']) && intval($row_attributes['sso_access']) === 1;
+        if (!$is_oidc_mailbox && !$sso_login_allowed) {
           clear_session();
           $_SESSION['return'][] =  array(
             'type' => 'danger',
-            'log' => array(__FUNCTION__, $info['email'], "The user's authentication source is not of type OIDC"),
+            'log' => array(__FUNCTION__, $info['email'], "SSO login is not enabled for this mailbox"),
             'msg' => 'login_failed'
           );
           return false;
         }
+        // The link to the IdP user (`sub`) is checked for every mailbox signed
+        // in here, a local one opting in with `sso_access` included: another
+        // IdP user with the same email must not open it.
         if (!$idp_login->verifyLink($iam_settings['authsource'], $info['email'], (string)($info['sub'] ?? ''))) {
           clear_session();
           $_SESSION['return'][] =  array(
@@ -2893,7 +2905,10 @@ function identity_provider($_action = null, $_data = null, $_extra = null) {
           );
           return false;
         }
-        $update_template = $idp_login->templateFor($info['email'], $mapped_template);
+        // Template mapping provisions and rewrites a mailbox from the provider,
+        // which is only meaningful for a mailbox the provider owns. A local
+        // mailbox opting into SSO is not rewritten — it just gets a session.
+        $update_template = $is_oidc_mailbox ? $idp_login->templateFor($info['email'], $mapped_template) : null;
         if ($update_template !== null) {
           // update user
           $_SESSION['access_all_exception'] = '1';

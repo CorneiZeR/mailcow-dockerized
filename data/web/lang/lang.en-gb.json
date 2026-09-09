@@ -902,6 +902,8 @@
         "sogo_access": "Direct forwarding to SOGo",
         "sogo_access_info": "After logging in, the user is automatically redirected to SOGo.",
         "sogo_visible": "Alias is visible in SOGo",
+        "sso_access": "Allow SSO login",
+        "sso_access_info": "Adds sign-in through the configured identity provider as an additional login flow for this mailbox. The mailbox keeps its own login and password; this does not change how the password is verified.",
         "sogo_visible_info": "This option only affects objects, that can be displayed in SOGo (shared or non-shared alias addresses pointing to at least one local mailbox). If hidden, an alias will not appear as selectable sender in SOGo.",
         "spam_alias": "Create or change time limited alias addresses",
         "spam_filter": "Spam filter",
